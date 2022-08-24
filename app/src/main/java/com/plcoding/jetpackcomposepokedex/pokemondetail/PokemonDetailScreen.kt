@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
@@ -40,8 +39,6 @@ import com.plcoding.jetpackcomposepokedex.util.Resource
 import com.plcoding.jetpackcomposepokedex.util.parseStatToAbbr
 import com.plcoding.jetpackcomposepokedex.util.parseStatToColor
 import com.plcoding.jetpackcomposepokedex.util.parseTypeToColor
-import java.security.Permission
-import java.security.Permissions
 import java.util.*
 import kotlin.math.round
 
