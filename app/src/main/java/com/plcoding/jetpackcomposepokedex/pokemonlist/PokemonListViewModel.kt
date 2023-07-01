@@ -13,6 +13,7 @@ import com.plcoding.jetpackcomposepokedex.repository.PokemonRepository
 import com.plcoding.jetpackcomposepokedex.util.Constants.PAGE_SIZE
 import com.plcoding.jetpackcomposepokedex.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.*
@@ -20,7 +21,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PokemonListViewModel @Inject constructor(
-    private val repository: PokemonRepository
+    private val repository: PokemonRepository,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default
+
 ) : ViewModel() {
 
     private var curPage = 0
@@ -29,7 +32,6 @@ class PokemonListViewModel @Inject constructor(
     var loadError = mutableStateOf("")
     var isLoading = mutableStateOf(false)
     var endReached = mutableStateOf(false)
-
     private var cachedPokemonList = listOf<PokedexListEntry>()
     private var isSearchStarting = true
     var isSearching = mutableStateOf(false)
@@ -39,13 +41,13 @@ class PokemonListViewModel @Inject constructor(
     }
 
     fun searchPokemonList(query: String) {
-        val listToSearch = if(isSearchStarting) {
+        val listToSearch = if (isSearchStarting) {
             pokemonList.value
         } else {
             cachedPokemonList
         }
-        viewModelScope.launch(Dispatchers.Default) {
-            if(query.isEmpty()) {
+        viewModelScope.launch(dispatcher) {
+            if (query.isEmpty()) {
                 pokemonList.value = cachedPokemonList
                 isSearching.value = false
                 isSearchStarting = true
@@ -55,7 +57,7 @@ class PokemonListViewModel @Inject constructor(
                 it.pokemonName.contains(query.trim(), ignoreCase = true) ||
                         it.number.toString() == query.trim()
             }
-            if(isSearchStarting) {
+            if (isSearchStarting) {
                 cachedPokemonList = pokemonList.value
                 isSearchStarting = false
             }
@@ -67,17 +69,22 @@ class PokemonListViewModel @Inject constructor(
     fun loadPokemonPaginated() {
         viewModelScope.launch {
             isLoading.value = true
-            when(val result = repository.getPokemonList(PAGE_SIZE, curPage * PAGE_SIZE)) {
+            when (val result = repository.getPokemonList(PAGE_SIZE, curPage * PAGE_SIZE)) {
                 is Resource.Success -> {
                     endReached.value = curPage * PAGE_SIZE >= result.data!!.count
-                    val pokedexEntries = result.data.results.mapIndexed { index, entry ->
-                        val number = if(entry.url.endsWith("/")) {
+                    val pokedexEntries = result.data.results.mapIndexed { _, entry ->
+                        val number = if (entry.url.endsWith("/")) {
                             entry.url.dropLast(1).takeLastWhile { it.isDigit() }
                         } else {
                             entry.url.takeLastWhile { it.isDigit() }
                         }
-                        val url = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${number}.png"
-                        PokedexListEntry(entry.name.capitalize(Locale.ROOT), url, number.toInt())
+                        val url =
+                            "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${number}.png"
+                        PokedexListEntry(entry.name.replaceFirstChar {
+                            if (it.isLowerCase()) it.titlecase(
+                                Locale.ROOT
+                            ) else it.toString()
+                        }, url, number.toInt())
                     }
                     curPage++
 
@@ -85,11 +92,15 @@ class PokemonListViewModel @Inject constructor(
                     isLoading.value = false
                     pokemonList.value += pokedexEntries
                 }
+
                 is Resource.Error -> {
                     loadError.value = result.message!!
                     isLoading.value = false
                 }
-                else -> {}
+
+                is Resource.Loading -> {
+                    isLoading.value = true
+                }
             }
         }
     }
@@ -103,4 +114,5 @@ class PokemonListViewModel @Inject constructor(
             }
         }
     }
+
 }
